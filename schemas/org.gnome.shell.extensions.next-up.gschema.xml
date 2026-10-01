@@ -4,6 +4,13 @@
     <!-- See also: https://docs.gtk.org/glib/gvariant-format-strings.html -->
     <key name="which-panel" type="i">
       <default>1</default>
+      <summary>Panel position</summary>
+      <description>Which panel to place the indicator in: 0 = Left, 1 = Center, 2 = Right</description>
+    </key>
+    <key name="language" type="s">
+      <default>'es'</default>
+      <summary>Extension language</summary>
+      <description>Language for the extension: 'es' (Spanish), 'en' (English), 'system' (System default)</description>
     </key>
   </schema>
 </schemalist>

@@ -1,6 +1,9 @@
+import { t } from "./i18n.js";
+
 const MAX_EVENT_SUMMARY_LENGTH = 35;
 
 function trimLongEventName(summary) {
+  if (!summary) return "";
   if (summary.length > MAX_EVENT_SUMMARY_LENGTH) {
     return summary.substring(0, MAX_EVENT_SUMMARY_LENGTH) + "...";
   } else {
@@ -9,6 +12,7 @@ function trimLongEventName(summary) {
 }
 
 function notFullDayEvent(event) {
+  if (!event || !event.date || !event.end) return false;
   return !(
     event.date.getHours() === 0 &&
     event.date.getMinutes() === 0 &&
@@ -18,8 +22,7 @@ function notFullDayEvent(event) {
 }
 
 export function getTodaysEvents(calendarSource) {
-  const src = calendarSource;
-  src._loadEvents(true);
+  if (!calendarSource) return [];
 
   const today = new Date();
   today.setHours(0, 0, 0, 0); // Get event from today at midnight
@@ -27,7 +30,17 @@ export function getTodaysEvents(calendarSource) {
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
 
-  const todaysEvents = src.getEvents(today, tomorrow).filter(notFullDayEvent);
+  if (typeof calendarSource.requestRange === "function") {
+    calendarSource.requestRange(today, tomorrow);
+  } else if (typeof calendarSource._loadEvents === "function") {
+    calendarSource._loadEvents(true);
+  }
+
+  const events = typeof calendarSource.getEvents === "function"
+    ? calendarSource.getEvents(today, tomorrow)
+    : [];
+
+  const todaysEvents = (events || []).filter(notFullDayEvent);
 
   return todaysEvents;
 }
@@ -79,33 +92,38 @@ export function getNextEventsToDisplay(todaysEvents) {
   };
 }
 
-export function eventStatusToIndicatorText(eventStatus) {
+export function eventStatusToIndicatorText(eventStatus, lang = "es") {
   function displayNextEvent(event) {
     const timeText = getTimeOfEventAsText(event.date);
-    const diffText = getTimeToEventAsText(event.date);
-
+    const diffText = getTimeToEventAsText(event.date, lang);
     const summary = trimLongEventName(event.summary);
 
-    return `In ${diffText}: ${summary} at ${timeText}`;
+    const inWord = t("inTime", lang);
+    const atWord = t("atTime", lang);
+    return `${inWord} ${diffText}: ${summary} ${atWord} ${timeText}`;
   }
 
   function displayCurrentEventAndNextEvent(currentEvent, nextEvent) {
-    const endsInText = getTimeToEventAsText(currentEvent.end);
+    const endsInText = getTimeToEventAsText(currentEvent.end, lang);
     const timeText = getTimeOfEventAsText(nextEvent.date);
-
     const summary = trimLongEventName(nextEvent.summary);
 
-    return `Ends in ${endsInText}. Next: ${summary} at ${timeText}`;
+    const endsInWord = t("endsIn", lang);
+    const nextWord = t("nextEvent", lang);
+    const atWord = t("atTime", lang);
+    return `${endsInWord} ${endsInText}. ${nextWord}: ${summary} ${atWord} ${timeText}`;
   }
 
   function displayCurrentEvent(event) {
-    const endsInText = getTimeToEventAsText(event.end);
+    const endsInText = getTimeToEventAsText(event.end, lang);
+    const summary = trimLongEventName(event.summary);
 
-    return `Ends in ${endsInText}: ${event.summary}`;
+    const endsInWord = t("endsIn", lang);
+    return `${endsInWord} ${endsInText}: ${summary}`;
   }
 
   function displayNoEvents() {
-    return "Done for today!";
+    return t("doneForToday", lang);
   }
 
   const { currentEvent, nextEvent } = eventStatus;
@@ -127,21 +145,26 @@ export function eventStatusToIndicatorText(eventStatus) {
 
 function getTimeOfEventAsText(eventDate) {
   const hrs = eventDate.getHours();
-  let mins = eventDate.getMinutes().toString();
-
-  mins = mins.padEnd(2, "0"); // Show e.g. 11am as 11:00 instead of 11:0
+  let mins = eventDate.getMinutes().toString().padStart(2, "0");
 
   const time = `${hrs}:${mins}`;
   return time;
 }
 
-function getTimeToEventAsText(eventDate) {
+function getTimeToEventAsText(eventDate, lang = "es") {
   const now = new Date();
   const diff = Math.abs(eventDate - now);
   const diffInMins = Math.ceil(diff / (1000 * 60));
 
   const hrDiff = Math.floor(diffInMins / 60);
   const minDiff = diffInMins % 60;
+  const hrUnit = t("hrShort", lang);
+  const minUnit = t("minShort", lang);
 
-  return hrDiff > 0 ? `${hrDiff} hr ${minDiff} min` : `${minDiff} min`;
+  if (hrDiff > 0) {
+    return minDiff > 0
+      ? `${hrDiff} ${hrUnit} ${minDiff} ${minUnit}`
+      : `${hrDiff} ${hrUnit}`;
+  }
+  return `${minDiff} ${minUnit}`;
 }
